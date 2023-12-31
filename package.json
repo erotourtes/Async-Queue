@@ -4,7 +4,9 @@
   "description": "",
   "scripts": {
     "start": "npx ts-node ./src/main.ts",
-    "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --fix"
+    "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --fix",
+    "test-broken": "node --test --require ts-node/register ./tests/{*,**/*}.test.ts",
+    "test": "find ./tests -name '*.test.ts' -exec node --test --require ts-node/register {} +"
   },
   "keywords": [],
   "author": "",
@@ -22,5 +24,8 @@
     "prettier": "^3.1.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "tsconfig-paths": "^4.2.0"
   }
 }
