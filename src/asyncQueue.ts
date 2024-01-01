@@ -148,14 +148,14 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
   }
 
   /**
-   * @returns the number of tasks in the waiting queue
+   * @returns the number of waiting tasks
    */
   get waitLength() {
     return this.waitingQueue.length;
   }
 
   /**
-   * @returns the number of tasks in the working queue (tasks that are running or finished)
+   * @returns the number of tasks that are running or finished
    */
   get workingLength() {
     return this.workingTasks.length;
