@@ -100,19 +100,20 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     }
 
     this.workingTasks.push(taskWrapper);
-
     this.running++;
 
-    await taskWrapper
-      .task()
-      .then((result) => {
-        this.running--;
-        taskWrapper.status = 'done';
-        return result;
-      })
-      .then((result) => this.emitTaskSuccess(taskWrapper, result))
-      .catch((error) => this.emitTaskError(taskWrapper, error))
-      .finally(() => this.emitTaskDone(taskWrapper));
+    try {
+      const result = await taskWrapper.task();
+      this.handleTaskDone(taskWrapper);
+      taskWrapper.result = { ok: true, res: result };
+      this.ee.emit(AsyncQueue.TASK_SUCCESS, result);
+    } catch (error) {
+      this.handleTaskDone(taskWrapper);
+      taskWrapper.result = { ok: false, err: error as Error };
+      this.ee.emit(AsyncQueue.TASK_ERROR, error);
+    } finally {
+      this.ee.emit(AsyncQueue.TASK_DONE, taskWrapper.result);
+    }
 
     if (this.waitLength > 0) {
       const nextTask = this.waitingQueue.shift()!;
@@ -120,20 +121,11 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     }
   }
 
-  private emitTaskError(taskWrapper: TaskWrapper<T>, error: Error) {
-    taskWrapper.result = { ok: false, err: error };
+  private handleTaskDone(taskWrapper: TaskWrapper<T>) {
+    if (taskWrapper.status == 'done') return;
 
-    this.emit(AsyncQueue.TASK_ERROR, error);
-  }
-
-  private emitTaskSuccess(taskWrapper: TaskWrapper<T>, result: T) {
-    taskWrapper.result = { ok: true, res: result };
-
-    this.emit(AsyncQueue.TASK_SUCCESS, result);
-  }
-
-  private emitTaskDone(taskWrapper: TaskWrapper<T>) {
-    this.emit(AsyncQueue.TASK_DONE, taskWrapper.result);
+    this.running--;
+    taskWrapper.status = 'done';
   }
 
   /**

@@ -58,4 +58,23 @@ describe('asyncQueue', () => {
         }
       }
     };
+
+  it('should return error', async () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => async () => {
+      await setTimeout(100);
+      if (i === 5) throw new Error('error');
+
+      return i;
+    });
+    const queue = AsyncQueue.from(tasks, 3);
+
+    let returnedErr = 0;
+    for await (const result of queue) {
+      if (!result.ok) {
+        returnedErr++;
+      }
+    }
+
+    assert.strictEqual(returnedErr, 1);
+  });
 });
