@@ -78,7 +78,6 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
   }
 
   [Symbol.asyncIterator](): AsyncIterator<Result<T>> {
-    this.lockQueue();
     return new this.Iterator(this);
   }
 
@@ -184,6 +183,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
     private queue: AsyncQueue<T>;
 
     constructor(queue: AsyncQueue<T>) {
+      queue.lockQueue();
       this.queue = queue;
     }
 
