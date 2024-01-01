@@ -96,7 +96,7 @@ describe('asyncQueue', () => {
     assert.strictEqual(returnedErr, 5);
   });
 
-  it('should abourt', async () => {
+  it('should abort', async () => {
     const tasks = Array.from({ length: 10 }, (_, i) => async () => {
       await setTimeout(100);
       return i;
@@ -105,7 +105,7 @@ describe('asyncQueue', () => {
 
     setTimeout(150).then(() => {
       // abort between 1st and 2nd task set
-      queue.abort();
+      queue.abort(false);
     });
     let aborted = 0;
     queue.onTaskError((result) => {
@@ -124,5 +124,32 @@ describe('asyncQueue', () => {
     // rest is not started
     assert.strictEqual(succeded, 3);
     assert.strictEqual(aborted, 3);
+  });
+
+  it('should abort and clear listeners', async () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => async () => {
+      await setTimeout(100);
+      return i;
+    });
+    const queue = AsyncQueue.from(tasks, 3);
+
+    setTimeout(150).then(() => {
+      queue.abort();
+    });
+
+    let aborted = 0;
+    queue.onTaskError((result) => {
+      if (result instanceof AbortException) {
+        aborted++;
+      }
+    });
+    let succeded = 0;
+    queue.onTaskSuccess((result) => {
+      succeded++;
+    });
+    await queue.wait();
+
+    assert.strictEqual(succeded, 3);
+    assert.strictEqual(aborted, 0);
   });
 });

@@ -53,6 +53,10 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     }
 
     return new Promise<void>((resolve) => {
+      // double resolve doesn't matter
+      this.eventEmitter.once(AsyncQueue.ABORT, () => {
+        resolve();
+      });
       this.onTaskDone(() => {
         if (this.running === 0) {
           resolve();
@@ -64,13 +68,22 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   /**
     Force reset
     */
-  abort(): this {
+  abort(removeListeners: boolean = true): this {
     this.workingTasks
       .filter((t) => t.status === 'working')
       .forEach((t) => t.abortController.abort());
 
     this.waitingQueue = [];
     this.workingTasks = [];
+
+    // this.running will be 0 after all tasks are aborted
+
+    this.eventEmitter.emit(AsyncQueue.ABORT);
+
+    if (removeListeners) {
+      this.eventEmitter.removeAllListeners();
+    }
+
 
     return this;
   }
@@ -81,7 +94,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     * @throws {Error} if the queue is running, cannot reset while tasks are running
     * @throws {ConcurentModificationException} cannot reset while iterating
     */
-  reset(): this {
+  reset(removeAllListeners: boolean = true): this {
     if (this.running > 0) {
       throw new Error('cannot reset while tasks are running');
     }
@@ -89,7 +102,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
       throw new ConcurentModificationException();
     }
 
-    return this.abort();
+    return this.abort(removeAllListeners);
   }
 
   [Symbol.asyncIterator](): AsyncIterator<Result<T>> {
@@ -229,6 +242,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   static TASK_ERROR = 'task-error';
   static TASK_SUCCESS = 'task-success';
   static TASK_TIMEOUT = 'task-timeout';
+  private static ABORT = 'abort';
 
   private Iterator = class Iterator implements AsyncIterator<Result<T>> {
     private curIndex = 0;
