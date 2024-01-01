@@ -3,6 +3,7 @@ import { setTimeout } from 'timers/promises';
 import assert from 'node:assert';
 
 import { AsyncQueue } from '@/queue/module';
+import { AbortException } from '@/queue/errors';
 
 describe('asyncQueue', () => {
   it('test concurency', async () => {
@@ -93,5 +94,35 @@ describe('asyncQueue', () => {
     }
 
     assert.strictEqual(returnedErr, 5);
+  });
+
+  it('should abourt', async () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => async () => {
+      await setTimeout(100);
+      return i;
+    });
+    const queue = AsyncQueue.from(tasks, 3);
+
+    setTimeout(150).then(() => {
+      // abort between 1st and 2nd task set
+      queue.abort();
+    });
+    let aborted = 0;
+    queue.onTaskError((result) => {
+      if (result instanceof AbortException) {
+        aborted++;
+      }
+    });
+    let succeded = 0;
+    queue.onTaskSuccess((result) => {
+      succeded++;
+    });
+    await queue.wait();
+
+    // 3 finished (1st set)
+    // 3 aborted (2st set)
+    // rest is not started
+    assert.strictEqual(succeded, 3);
+    assert.strictEqual(aborted, 3);
   });
 });

@@ -9,3 +9,9 @@ export class TimeoutException extends Error {
     super('Task timeout');
   }
 }
+
+export class AbortException extends Error {
+  constructor() {
+    super('Task aborted');
+  }
+}

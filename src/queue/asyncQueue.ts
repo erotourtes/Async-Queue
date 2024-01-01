@@ -1,7 +1,11 @@
 import { EventEmitter } from 'stream';
-import { ConcurentModificationException, TimeoutException } from './errors';
+import {
+  AbortException,
+  ConcurentModificationException,
+  TimeoutException,
+} from './errors';
 import { Result, Task, TaskWrapper } from '@t/all';
-import { taskFactory } from './taskUtils';
+import { identity, pipe, taskFactory } from './utils';
 
 class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   private waitingQueue: TaskWrapper<T>[] = [];
@@ -43,9 +47,9 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     this.ee.on(AsyncQueue.TASK_SUCCESS, listener);
   }
 
-  wait() {
+  wait(): Promise<void> {
     if (this.running === 0) {
-      return;
+      return Promise.resolve();
     }
 
     return new Promise<void>((resolve) => {
@@ -57,16 +61,35 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     });
   }
 
-  reset() {
-    if (this.running > 0) {
-      throw new Error('cannot reset while tasks are running');
-    }
-
-    // TODO: add abort controller to abort running tasks
+  /**
+    Force reset
+    */
+  abort(): this {
+    this.workingTasks
+      .filter((t) => t.status === 'working')
+      .forEach((t) => t.abortController.abort());
 
     this.waitingQueue = [];
     this.workingTasks = [];
-    this.running = 0;
+
+    return this;
+  }
+
+  /**
+    * Resets the queue
+
+    * @throws {Error} if the queue is running, cannot reset while tasks are running
+    * @throws {ConcurentModificationException} cannot reset while iterating
+    */
+  reset(): this {
+    if (this.running > 0) {
+      throw new Error('cannot reset while tasks are running');
+    }
+    if (this.isLocked) {
+      throw new ConcurentModificationException();
+    }
+
+    return this.abort();
   }
 
   [Symbol.asyncIterator](): AsyncIterator<Result<T>> {
@@ -87,8 +110,12 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   }
 
   private enqueueTask(task: Task<T>) {
-    const timeOutTask = this.timeout > 0 ? this.timeoutTask(task) : task;
-    const taskWrapper = taskFactory<T>(timeOutTask);
+    const modifiedTask = pipe(
+      this.abortableTask.bind(this),
+      this.timeout > 0 ? this.timeoutTask.bind(this) : identity,
+    )(task);
+
+    const taskWrapper = taskFactory<T>(modifiedTask);
 
     if (this.running < this.concurency) {
       return void this.runTask(taskWrapper);
@@ -97,15 +124,27 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     this.waitingQueue.push(taskWrapper);
   }
 
-  private timeoutTask(task: Task<T>) {
-    return () =>
+  private abortableTask(task: Task<T>): Task<T> {
+    return (signal: AbortSignal) =>
+      new Promise<T>((resolve, reject) => {
+        const listener = () => {
+          reject(new AbortException());
+          signal.removeEventListener('abort', listener);
+        };
+        signal.onabort = listener;
+        task(signal).then(resolve).catch(reject);
+      });
+  }
+
+  private timeoutTask(task: Task<T>): Task<T> {
+    return (signal: AbortSignal) =>
       new Promise<T>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
           reject(new TimeoutException());
           this.ee.emit(AsyncQueue.TASK_TIMEOUT);
         }, this.timeout);
 
-        task()
+        task(signal)
           .then(resolve)
           .catch(reject)
           .finally(() => {
@@ -122,9 +161,10 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     this.workingTasks.push(taskWrapper);
     this.running++;
 
+    taskWrapper.status = 'working';
+
     try {
-      taskWrapper.status = 'working';
-      const result = await taskWrapper.task();
+      const result = await taskWrapper.task(taskWrapper.abortController.signal);
       this.handleTaskDone(taskWrapper);
       taskWrapper.result = { ok: true, res: result };
       this.ee.emit(AsyncQueue.TASK_SUCCESS, result);
@@ -143,6 +183,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   }
 
   private handleTaskDone(taskWrapper: TaskWrapper<T>) {
+    if (this.running <= 0) throw new Error('running cannot be negative');
     if (taskWrapper.status == 'done') return;
 
     this.running--;
