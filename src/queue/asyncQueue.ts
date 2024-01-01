@@ -5,7 +5,7 @@ import {
   TimeoutException,
 } from './errors';
 import { Result, Task, TaskWrapper } from '@t/all';
-import { identity, pipe, taskFactory } from './utils';
+import { Err, Ok, identity, pipe, taskFactory } from './utils';
 
 class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   private waitingQueue: TaskWrapper<T>[] = [];
@@ -182,11 +182,11 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     try {
       const result = await taskWrapper.task(taskWrapper.abortController.signal);
       this.handleTaskDone(taskWrapper);
-      taskWrapper.result = { ok: true, res: result };
+      taskWrapper.result = Ok(result);
       this.ee.emit(AsyncQueue.TASK_SUCCESS, result);
     } catch (error) {
       this.handleTaskDone(taskWrapper);
-      taskWrapper.result = { ok: false, err: error as Error };
+      taskWrapper.result = Err(error as Error);
       this.ee.emit(AsyncQueue.TASK_ERROR, error);
     } finally {
       this.ee.emit(AsyncQueue.TASK_DONE, taskWrapper.result);

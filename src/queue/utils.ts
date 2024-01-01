@@ -14,3 +14,7 @@ export const pipe = <T>(...fns: ((arg: T) => T)[]) => (arg: T) =>
   fns.reduce((acc, fn) => fn(acc), arg);
 
 export const identity = <T>(arg: T) => arg;
+
+export const Ok = <T>(res: T) => ({ ok: true, res } as const); // TODO: may be freeze it?
+
+export const Err = <E>(err: E) => ({ ok: false, err } as const);
