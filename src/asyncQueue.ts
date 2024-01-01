@@ -3,11 +3,7 @@ import { ConcurentModificationException } from './errors';
 
 type TaskStatus = 'pending' | 'working' | 'done';
 
-// type Result<T> = [Error | null, T | null];
-type Result<T> = {
-  err: Error | null;
-  res: T | null;
-};
+type Result<T, E = Error> = { ok: true; res: T } | { ok: false; err: E };
 
 type TaskWrapper<T> = {
   task: Task<T>;
@@ -21,7 +17,7 @@ const taskFactory = <T>(
 ): TaskWrapper<T> => ({
   task,
   status,
-  result: { err: null, res: null },
+  result: { ok: false, err: new Error('task not finished') },
 });
 
 type Task<T> = () => Promise<T>;
@@ -136,13 +132,13 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
   }
 
   private emitTaskError(taskWrapper: TaskWrapper<T>, error: Error) {
-    taskWrapper.result = { err: error, res: null };
+    taskWrapper.result = { ok: false, err: error };
 
     this.emit(AsyncQueue.TASK_ERROR, error);
   }
 
   private emitTaskSuccess(taskWrapper: TaskWrapper<T>, result: T) {
-    taskWrapper.result = { err: null, res: result };
+    taskWrapper.result = { ok: true, res: result };
 
     this.emit(AsyncQueue.TASK_SUCCESS, result);
   }

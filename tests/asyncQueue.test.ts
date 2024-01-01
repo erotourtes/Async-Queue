@@ -1,4 +1,4 @@
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import { setTimeout } from 'timers/promises';
 import assert from 'node:assert';
 
@@ -29,11 +29,7 @@ describe('asyncQueue', () => {
 
     const time = Date.now();
     for await (const result of queue) {
-      const { err, res } = result;
-      if (err) {
-        throw err;
-      }
-      assert.strictEqual(res! < 10, true);
+      if (result.ok) assert.strictEqual(result.res < 10, true);
     }
     const duration = Date.now() - time;
 

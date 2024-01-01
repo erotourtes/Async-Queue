@@ -10,11 +10,7 @@ async function main() {
 
   for await (const result of queue) {
     console.log(result);
-    const { err, res } = result;
-    if (err) {
-      throw err;
-    }
-    console.log(res!);
+    if (result.ok) console.log(result.res);
   }
 }
 
