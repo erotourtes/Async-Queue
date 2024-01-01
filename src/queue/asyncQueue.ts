@@ -3,21 +3,18 @@ import { ConcurentModificationException } from './errors';
 import { Result, Task, TaskWrapper } from '@t/all';
 import { taskFactory } from './taskUtils';
 
-class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
-  private waitingQueue: TaskWrapper<T>[];
-  private workingTasks: TaskWrapper<T>[];
+class AsyncQueue<T> implements AsyncIterable<Result<T>> {
+  private waitingQueue: TaskWrapper<T>[] = [];
+  private workingTasks: TaskWrapper<T>[] = [];
 
-  private running: number;
+  private running: number = 0;
 
   private isLocked = false;
 
+  private ee = new EventEmitter();
+
   // TODO: add timeout
-  constructor(private readonly concurency: number = 1) {
-    super();
-    this.waitingQueue = [];
-    this.workingTasks = [];
-    this.running = 0;
-  }
+  constructor(private readonly concurency: number = 1) {}
 
   /**
    * Add tasks to the queue
@@ -32,13 +29,25 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
     tasks.forEach((task) => this.enqueueTask(task));
   }
 
+  onTaskDone(listener: (result: Result<T>) => void) {
+    this.ee.on(AsyncQueue.TASK_DONE, listener);
+  }
+
+  onTaskError(listener: (error: Error) => void) {
+    this.ee.on(AsyncQueue.TASK_ERROR, listener);
+  }
+
+  onTaskSuccess(listener: (result: T) => void) {
+    this.ee.on(AsyncQueue.TASK_SUCCESS, listener);
+  }
+
   wait() {
     if (this.running === 0) {
       return;
     }
 
     return new Promise<void>((resolve) => {
-      this.on(AsyncQueue.TASK_DONE, () => {
+      this.onTaskDone(() => {
         if (this.running === 0) {
           resolve();
         }
@@ -148,6 +157,10 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
     return this.waitLength + this.workingLength;
   }
 
+  get eventEmitter() {
+    return this.ee;
+  }
+
   static from<T>(tasks: Task<T>[], concurency: number = 1) {
     const queue = new AsyncQueue<T>(concurency);
     tasks.forEach((task) => queue.enqueue(task));
@@ -178,7 +191,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
       }
 
       return new Promise((resolve) => {
-        this.queue.once(AsyncQueue.TASK_DONE, (result) => {
+        this.queue.ee.once(AsyncQueue.TASK_DONE, (result) => {
           resolve({
             done: false,
             value: result,
