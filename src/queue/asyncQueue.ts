@@ -47,6 +47,10 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     this.ee.on(AsyncQueue.TASK_SUCCESS, listener);
   }
 
+  onTaskTimeout(listener: () => void) {
+    this.ee.on(AsyncQueue.TASK_TIMEOUT, listener);
+  }
+
   wait(): Promise<void> {
     if (this.running === 0) {
       return Promise.resolve();
@@ -83,7 +87,6 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     if (removeListeners) {
       this.eventEmitter.removeAllListeners();
     }
-
 
     return this;
   }
