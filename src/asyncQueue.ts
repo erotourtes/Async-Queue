@@ -1,12 +1,18 @@
 import { EventEmitter } from 'stream';
 import { ConcurentModificationException } from './errors';
 
-type TaskStatus = 'pending' | 'working' | 'done' | 'error';
+type TaskStatus = 'pending' | 'working' | 'done';
+
+// type Result<T> = [Error | null, T | null];
+type Result<T> = {
+  err: Error | null;
+  res: T | null;
+};
 
 type TaskWrapper<T> = {
   task: Task<T>;
   status: TaskStatus;
-  result: T | Error;
+  result: Result<T>;
 };
 
 const taskFactory = <T>(
@@ -15,12 +21,12 @@ const taskFactory = <T>(
 ): TaskWrapper<T> => ({
   task,
   status,
-  result: new Error('not finished yet'),
+  result: { err: null, res: null },
 });
 
 type Task<T> = () => Promise<T>;
 
-class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
+class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
   private waitingQueue: TaskWrapper<T>[];
   private workingTasks: TaskWrapper<T>[];
 
@@ -75,7 +81,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
     this.running = 0;
   }
 
-  [Symbol.asyncIterator](): AsyncIterator<T | Error> {
+  [Symbol.asyncIterator](): AsyncIterator<Result<T>> {
     this.lockQueue();
     return new this.Iterator(this);
   }
@@ -116,6 +122,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
       .task()
       .then((result) => {
         this.running--;
+        taskWrapper.status = 'done';
         return result;
       })
       .then((result) => this.emitTaskSuccess(taskWrapper, result))
@@ -129,19 +136,19 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
   }
 
   private emitTaskError(taskWrapper: TaskWrapper<T>, error: Error) {
-    taskWrapper.status = 'error';
-    taskWrapper.result = error;
-    this.emit(AsyncQueue.TASK_ERROR, taskWrapper);
+    taskWrapper.result = { err: error, res: null };
+
+    this.emit(AsyncQueue.TASK_ERROR, error);
   }
 
   private emitTaskSuccess(taskWrapper: TaskWrapper<T>, result: T) {
-    taskWrapper.status = 'done';
-    taskWrapper.result = result;
-    this.emit(AsyncQueue.TASK_SUCCESS, taskWrapper);
+    taskWrapper.result = { err: null, res: result };
+
+    this.emit(AsyncQueue.TASK_SUCCESS, result);
   }
 
   private emitTaskDone(taskWrapper: TaskWrapper<T>) {
-    this.emit(AsyncQueue.TASK_DONE, taskWrapper);
+    this.emit(AsyncQueue.TASK_DONE, taskWrapper.result);
   }
 
   /**
@@ -176,7 +183,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
   static TASK_SUCCESS = 'task-success';
   static TASK_TIMEOUT = 'task-timeout';
 
-  private Iterator = class Iterator implements AsyncIterator<T | Error> {
+  private Iterator = class Iterator implements AsyncIterator<Result<T>> {
     private curIndex = 0;
     private queue: AsyncQueue<T>;
 
@@ -184,7 +191,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
       this.queue = queue;
     }
 
-    next(): Promise<IteratorResult<T | Error>> {
+    next(): Promise<IteratorResult<Result<T>>> {
       if (this.isDone) {
         this.queue.unlockQueue();
         return Promise.resolve({
@@ -194,10 +201,10 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
       }
 
       return new Promise((resolve) => {
-        this.queue.once(AsyncQueue.TASK_DONE, (taskWrapper) => {
+        this.queue.once(AsyncQueue.TASK_DONE, (result) => {
           resolve({
             done: false,
-            value: taskWrapper.result,
+            value: result,
           });
           this.curIndex++;
         });

@@ -29,10 +29,11 @@ describe('asyncQueue', () => {
 
     const time = Date.now();
     for await (const result of queue) {
-      if (result instanceof Error) {
-        throw result;
+      const { err, res } = result;
+      if (err) {
+        throw err;
       }
-      assert.strictEqual(result < 10, true);
+      assert.strictEqual(res! < 10, true);
     }
     const duration = Date.now() - time;
 
