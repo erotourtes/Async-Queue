@@ -250,10 +250,12 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   private Iterator = class Iterator implements AsyncIterator<Result<T>> {
     private curIndex = 0;
     private queue: AsyncQueue<T>;
+    private pending: number;
 
     constructor(queue: AsyncQueue<T>) {
       queue.lockQueue();
       this.queue = queue;
+      this.pending = queue.waitLength;
     }
 
     next(): Promise<IteratorResult<Result<T>>> {
@@ -277,7 +279,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     }
 
     private get isDone() {
-      return this.curIndex >= this.queue.length;
+      return this.curIndex >= this.pending;
     }
   };
 }

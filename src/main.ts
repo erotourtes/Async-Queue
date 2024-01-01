@@ -11,35 +11,23 @@ async function main() {
   );
   const queue = AsyncQueue.from(tasks, 3, 500);
 
-  queue.onTaskDone((result) => {
-    console.log('done', result.ok);
-  });
-
-  queue.onTaskError((error) => {
-    console.log('err', error.message);
-  });
-
-  queue.onTaskSuccess((result) => {
-    console.log('suc', result);
-  });
-
-  queue.eventEmitter.on(AsyncQueue.TASK_TIMEOUT, (result) => {
-    console.log('timeout', result);
-  });
-
   setTimeout(150).then(() => {
     queue.abort();
   });
 
   console.log('wait');
-  await queue.wait();
+  // await queue.wait();
   console.log('------------------done------------------');
 
-  // await setTimeout(0); // fixes the problem
+  for await (const result of queue) {
+    console.log('result', result);
+  }
 
-  queue.onTaskError((error) => {
-    console.log('err', error.message); // should not be called
-  });
+  for await (const result of queue) {
+    console.log('result', result);
+  }
+
+  console.log('------------------done------------------');
 }
 
 main();
