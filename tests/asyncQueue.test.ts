@@ -4,6 +4,7 @@ import assert from 'node:assert';
 
 import { AsyncQueue } from '@/queue/module';
 import { AbortException } from '@/queue/errors';
+import { unwrap } from '@/queue/utils';
 
 describe('asyncQueue', () => {
   it('test concurency', async () => {
@@ -151,5 +152,13 @@ describe('asyncQueue', () => {
 
     assert.strictEqual(succeded, 3);
     assert.strictEqual(aborted, 0);
+
+    queue.enqueue(async () => {
+      await setTimeout(100);
+      return 10;
+    });
+    for await (const result of queue) {
+      assert.strictEqual(unwrap(result) , 10);
+    }
   });
 });

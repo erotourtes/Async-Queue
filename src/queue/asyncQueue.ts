@@ -126,9 +126,9 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   }
 
   private enqueueTask(task: Task<T>) {
-    const modifiedTask = pipe(
-      this.abortableTask.bind(this),
+    const modifiedTask = pipe<Task<T>>(
       this.timeout > 0 ? this.timeoutTask.bind(this) : identity,
+      this.abortableTask.bind(this), // WTF: somehow abortableTask should be called after timeoutTask
     )(task);
 
     const taskWrapper = taskFactory<T>(modifiedTask);
