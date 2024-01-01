@@ -37,13 +37,13 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
   }
 
   /**
-    * Add tasks to the queue
-    * @param tasks tasks to add to the queue
-    * @throws {ConcurentModificationException} if the queue is locked, cannot add tasks while iterating
-    */
+   * Add tasks to the queue
+   * @param tasks tasks to add to the queue
+   * @throws {ConcurentModificationException} if the queue is locked, cannot add tasks while iterating
+   */
   enqueue(...tasks: Task<T>[]) {
     if (this.isLocked) {
-      throw new ConcurentModificationException()
+      throw new ConcurentModificationException();
     }
 
     tasks.forEach((task) => this.enqueueTask(task));
@@ -120,7 +120,7 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
       })
       .then((result) => this.emitTaskSuccess(taskWrapper, result))
       .catch((error) => this.emitTaskError(taskWrapper, error))
-      .finally(() => this.emit(AsyncQueue.TASK_DONE, taskWrapper));
+      .finally(() => this.emitTaskDone(taskWrapper));
 
     if (this.waitLength > 0) {
       const nextTask = this.waitingQueue.shift()!;
@@ -138,6 +138,10 @@ class AsyncQueue<T> extends EventEmitter implements AsyncIterable<T | Error> {
     taskWrapper.status = 'done';
     taskWrapper.result = result;
     this.emit(AsyncQueue.TASK_SUCCESS, taskWrapper);
+  }
+
+  private emitTaskDone(taskWrapper: TaskWrapper<T>) {
+    this.emit(AsyncQueue.TASK_DONE, taskWrapper);
   }
 
   /**
