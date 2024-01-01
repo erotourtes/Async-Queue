@@ -1,5 +1,5 @@
 import { EventEmitter } from 'stream';
-import { ConcurentModificationException } from './errors';
+import { ConcurentModificationException, TimeoutException } from './errors';
 import { Result, Task, TaskWrapper } from '@t/all';
 import { taskFactory } from './taskUtils';
 
@@ -13,8 +13,10 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
 
   private ee = new EventEmitter();
 
-  // TODO: add timeout
-  constructor(private readonly concurency: number = 1) {}
+  constructor(
+    private readonly concurency: number = 1,
+    private readonly timeout: number = 0,
+  ) {}
 
   /**
    * Add tasks to the queue
@@ -85,13 +87,31 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   }
 
   private enqueueTask(task: Task<T>) {
+    const timeOutTask = this.timeout > 0 ? this.timeoutTask(task) : task;
+    const taskWrapper = taskFactory<T>(timeOutTask);
+
     if (this.running < this.concurency) {
-      const taskWrapper = taskFactory(task, 'working');
       return void this.runTask(taskWrapper);
     }
 
-    const taskWrapper = taskFactory(task);
     this.waitingQueue.push(taskWrapper);
+  }
+
+  private timeoutTask(task: Task<T>) {
+    return () =>
+      new Promise<T>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new TimeoutException());
+          this.ee.emit(AsyncQueue.TASK_TIMEOUT);
+        }, this.timeout);
+
+        task()
+          .then(resolve)
+          .catch(reject)
+          .finally(() => {
+            clearTimeout(timeoutId); // TODO: check if it's done immediately after .then or .catch
+          });
+      });
   }
 
   private async runTask(taskWrapper: TaskWrapper<T>) {
@@ -103,6 +123,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     this.running++;
 
     try {
+      taskWrapper.status = 'working';
       const result = await taskWrapper.task();
       this.handleTaskDone(taskWrapper);
       taskWrapper.result = { ok: true, res: result };
@@ -153,8 +174,12 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     return this.ee;
   }
 
-  static from<T>(tasks: Task<T>[], concurency: number = 1) {
-    const queue = new AsyncQueue<T>(concurency);
+  static from<T>(
+    tasks: Task<T>[],
+    concurency: number = 1,
+    timeout: number = 0,
+  ) {
+    const queue = new AsyncQueue<T>(concurency, timeout);
     tasks.forEach((task) => queue.enqueue(task));
     return queue;
   }
