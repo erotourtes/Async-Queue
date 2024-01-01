@@ -147,7 +147,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
           reject(new AbortException());
           signal.removeEventListener('abort', listener);
         };
-        signal.onabort = listener;
+        signal.addEventListener('abort', listener);
         task(signal).then(resolve).catch(reject);
       });
   }
