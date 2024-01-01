@@ -1,26 +1,7 @@
 import { EventEmitter } from 'stream';
 import { ConcurentModificationException } from './errors';
-
-type TaskStatus = 'pending' | 'working' | 'done';
-
-type Result<T, E = Error> = { ok: true; res: T } | { ok: false; err: E };
-
-type TaskWrapper<T> = {
-  task: Task<T>;
-  status: TaskStatus;
-  result: Result<T>;
-};
-
-const taskFactory = <T>(
-  task: Task<T>,
-  status: TaskStatus = 'pending',
-): TaskWrapper<T> => ({
-  task,
-  status,
-  result: { ok: false, err: new Error('task not finished') },
-});
-
-type Task<T> = () => Promise<T>;
+import { Result, Task, TaskWrapper } from '@t/all';
+import { taskFactory } from './taskUtils';
 
 class AsyncQueue<T> extends EventEmitter implements AsyncIterable<Result<T>> {
   private waitingQueue: TaskWrapper<T>[];

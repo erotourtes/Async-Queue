@@ -1,4 +1,4 @@
-import AsyncQueue from '@/asyncQueue';
+import { AsyncQueue } from '@/queue/module';
 import { setTimeout } from 'timers/promises';
 
 async function main() {

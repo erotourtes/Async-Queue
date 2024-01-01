@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { setTimeout } from 'timers/promises';
 import assert from 'node:assert';
 
-import AsyncQueue from '@/asyncQueue';
+import { AsyncQueue } from '@/queue/module';
 
 describe('asyncQueue', () => {
   it('test concurency', async () => {
