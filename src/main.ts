@@ -3,7 +3,7 @@ import { setTimeout } from 'timers/promises';
 
 async function main() {
   const tasks = Array.from(
-    { length: 10 },
+    { length: 6 },
     (_, i) => async (signal: AbortSignal) => {
       await setTimeout(100);
       return i;
@@ -33,12 +33,13 @@ async function main() {
 
   console.log('wait');
   await queue.wait();
-  console.log('done');
+  console.log('------------------done------------------');
 
-  // for await (const result of queue) {
-  //   console.log(result);
-  //   if (result.ok) console.log(result.res);
-  // }
+  // await setTimeout(0); // fixes the problem
+
+  queue.onTaskError((error) => {
+    console.log('err', error.message); // should not be called
+  });
 }
 
 main();
