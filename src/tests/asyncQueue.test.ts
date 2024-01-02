@@ -38,28 +38,27 @@ describe('asyncQueue', () => {
     assert.strictEqual(duration >= 300, true);
   });
 
-  it('should throw error'),
-    async () => {
-      const tasks = Array.from({ length: 10 }, (_, i) => async () => {
-        await setTimeout(100);
-        return i;
-      });
-      const queue = AsyncQueue.from(tasks, 3);
+  it('should throw error', async () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => async () => {
+      await setTimeout(100);
+      return i;
+    });
+    const queue = AsyncQueue.from(tasks, 3);
 
-      setTimeout(100).then(() => {
-        assert.throws(() => {
-          queue.enqueue(async () => {
-            await setTimeout(100);
-            return 10;
-          });
+    setTimeout(100).then(() => {
+      assert.throws(() => {
+        queue.enqueue(async () => {
+          await setTimeout(100);
+          return 10;
         });
       });
-      for await (const result of queue) {
-        if (result instanceof Error) {
-          throw result;
-        }
+    });
+    for await (const result of queue) {
+      if (result instanceof Error) {
+        throw result;
       }
-    };
+    }
+  });
 
   it('should return error', async () => {
     const tasks = Array.from({ length: 10 }, (_, i) => async () => {
