@@ -114,7 +114,7 @@ describe('asyncQueue', () => {
       }
     });
     let succeded = 0;
-    queue.onTaskSuccess((result) => {
+    queue.onTaskSuccess(() => {
       succeded++;
     });
     await queue.wait();
@@ -144,7 +144,7 @@ describe('asyncQueue', () => {
       }
     });
     let succeded = 0;
-    queue.onTaskSuccess((result) => {
+    queue.onTaskSuccess(() => {
       succeded++;
     });
     await queue.wait();
@@ -173,13 +173,13 @@ describe('asyncQueue', () => {
     });
 
     let done = 0;
-    for await (const result of queue) {
+    for await (const _result of queue) {
       done++;
     }
 
     assert.strictEqual(done, 2);
 
-    for await (const result of queue) {
+    for await (const _result of queue) {
       done++;
     }
 
