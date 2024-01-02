@@ -158,7 +158,32 @@ describe('asyncQueue', () => {
       return 10;
     });
     for await (const result of queue) {
-      assert.strictEqual(unwrap(result) , 10);
+      assert.strictEqual(unwrap(result), 10);
     }
+  });
+
+  it('should abort while iterating', async () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => async () => {
+      await setTimeout(100 * i);
+      return i;
+    });
+    const queue = AsyncQueue.from(tasks, 3);
+
+    setTimeout(150).then(() => {
+      queue.abort();
+    });
+
+    let done = 0;
+    for await (const result of queue) {
+      done++;
+    }
+
+    assert.strictEqual(done, 2);
+
+    for await (const result of queue) {
+      done++;
+    }
+
+    assert.strictEqual(done, 2);
   });
 });

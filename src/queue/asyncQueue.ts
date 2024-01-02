@@ -250,12 +250,15 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   private Iterator = class Iterator implements AsyncIterator<Result<T>> {
     private curIndex = 0;
     private queue: AsyncQueue<T>;
-    private pending: number;
+    private isDone = false;
 
     constructor(queue: AsyncQueue<T>) {
       queue.lockQueue();
       this.queue = queue;
-      this.pending = queue.waitLength;
+
+      if (queue.running === 0) {
+        this.isDone = true;
+      }
     }
 
     next(): Promise<IteratorResult<Result<T>>> {
@@ -268,18 +271,32 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
       }
 
       return new Promise((resolve) => {
+        const listener = () => this.abortListener(resolve);
+        this.queue.ee.once(AsyncQueue.ABORT, listener);
+
         this.queue.ee.once(AsyncQueue.TASK_DONE, (result) => {
+          if (this.queue.running === 0) {
+            this.isDone = true;
+          }
+
           resolve({
             done: false,
             value: result,
           });
           this.curIndex++;
+
+          this.queue.ee.removeListener(AsyncQueue.ABORT, listener);
         });
       });
     }
 
-    private get isDone() {
-      return this.curIndex >= this.pending;
+    private abortListener(resolve: (value: IteratorResult<Result<T>>) => void) {
+      this.queue.unlockQueue();
+      this.isDone = true;
+      resolve({
+        done: true,
+        value: undefined,
+      });
     }
   };
 }
