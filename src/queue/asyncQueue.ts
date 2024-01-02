@@ -119,6 +119,12 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     });
   }
 
+  async *generator() {
+    for await (const result of this) {
+      yield result;
+    }
+  }
+
   /**
    * Lock the queue, no more tasks can be added to the queue,
    * but the tasks that are already in the queue will still be executed
