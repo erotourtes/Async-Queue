@@ -6,6 +6,7 @@ import {
 } from './errors';
 import { Result, Task, TaskWrapper } from '@t/all';
 import { Err, Ok, identity, pipe, taskFactory } from './utils';
+import stream from 'stream';
 
 class AsyncQueue<T> implements AsyncIterable<Result<T>> {
   private waitingQueue: TaskWrapper<T>[] = [];
@@ -110,6 +111,12 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
 
   [Symbol.asyncIterator](): AsyncIterator<Result<T>> {
     return new this.Iterator(this);
+  }
+
+  createReadStream(): stream.Readable {
+    return stream.Readable.from({
+      [Symbol.asyncIterator]: () => new this.Iterator(this, false),
+    });
   }
 
   /**
@@ -252,9 +259,12 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     private queue: AsyncQueue<T>;
     private isDone = false;
 
-    constructor(queue: AsyncQueue<T>) {
-      queue.lockQueue();
+    constructor(
+      queue: AsyncQueue<T>,
+      private readonly shouldLock: boolean = true,
+    ) {
       this.queue = queue;
+      this.lockQueue();
 
       if (queue.running === 0) {
         this.isDone = true;
@@ -263,7 +273,7 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
 
     next(): Promise<IteratorResult<Result<T>>> {
       if (this.isDone) {
-        this.queue.unlockQueue();
+        this.unlockQueue();
         return Promise.resolve({
           done: true,
           value: undefined,
@@ -291,12 +301,20 @@ class AsyncQueue<T> implements AsyncIterable<Result<T>> {
     }
 
     private abortListener(resolve: (value: IteratorResult<Result<T>>) => void) {
-      this.queue.unlockQueue();
+      this.unlockQueue();
       this.isDone = true;
       resolve({
         done: true,
         value: undefined,
       });
+    }
+
+    private lockQueue() {
+      if (this.shouldLock) this.queue.lockQueue();
+    }
+
+    private unlockQueue() {
+      if (this.shouldLock) this.queue.unlockQueue();
     }
   };
 }
