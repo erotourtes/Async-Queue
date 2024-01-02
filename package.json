@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "start": "npx ts-node ./src/main.ts",
+    "start": "npx ts-node ./src/main/main.ts",
     "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --fix",
-    "test-broken": "node --test --require ts-node/register ./tests/{*,**/*}.test.ts",
-    "test": "find ./tests -name '*.test.ts' -exec node --test --require ts-node/register {} +"
+    "test-broken": "node --test --require ts-node/register ./src/tests/**/*.test.ts",
+    "test": "find ./src/tests -name '*.test.ts' -exec node --test --require ts-node/register {} +"
   },
   "keywords": [],
   "author": "",

@@ -5,8 +5,8 @@
   "compilerOptions": {
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["*"],
-      "@t/*": ["types/*"]
+      "@/*": ["main/*"],
+      "@t/*": ["main/types/*"]
     },
 
     /* Language and Environment */
